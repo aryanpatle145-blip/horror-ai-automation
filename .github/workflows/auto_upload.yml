@@ -26,5 +26,6 @@ jobs:
     - name: Run Master Controller (main.py)
       env:
         YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+        YOUTUBE_AUTH_CODE: ${{ secrets.YOUTUBE_AUTH_CODE }}
       run: |
         python main.py
