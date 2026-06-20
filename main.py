@@ -1,56 +1,93 @@
 import os
-# सभी स्क्रिप्ट्स को इम्पोर्ट कर रहे हैं
-from scripts.trends import fetch_trending_topics
-from scripts.story import generate_horror_story
-from scripts.voice import generate_voiceover
-from scripts.image import generate_horror_images
-from scripts.video import create_shorts_video
-from scripts.seo import generate_video_seo
-from scripts.upload import upload_to_youtube
-from scripts.analytics import check_video_performance
+import json
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2.credentials import Credentials
 
-def main():
-    print("==============================================")
-    print("   HORROR AI AUTOMATION: PROCESS STARTED     ")
-    print("==============================================")
-    
-    # Step 1: Trending Topic Search
-    print("\n[1/8] Searching trending horror topics...")
-    topics = fetch_trending_topics()
-    current_topic = topics[0] # सबसे पहला ट्रेंडिंग टॉपिक चुन रहे हैं
-    
-    # Step 2: Story Generation
-    print("\n[2/8] Generating AI Horror Story...")
-    story_text = generate_horror_story(current_topic)
-    
-    # Step 3: Voice Generation
-    print("\n[3/8] Generating AI Voiceover...")
-    audio_path = generate_voiceover(story_text)
-    
-    # Step 4: Image Generation
-    print("\n[4/8] Generating Cinematic Horror Images...")
-    images_list = generate_horror_images(story_text)
-    
-    # Step 5: Video Creation
-    print("\n[5/8] Editing & Creating Shorts Video...")
-    video_path = create_shorts_video(audio_path, images_list)
-    
-    # Step 6: SEO Optimization
-    print("\n[6/8] Generating SEO Title, Description & Tags...")
-    seo_metadata = generate_video_seo(current_topic)
-    
-    # Step 7: YouTube Upload
-    print("\n[7/8] Uploading Short to YouTube...")
-    upload_success = upload_to_youtube(video_path, seo_metadata)
-    
-    # Step 8: Analytics & Logs
-    if upload_success:
-        print("\n[8/8] Checking Analytics & Saving Logs...")
-        stats = check_video_performance()
+# 1. गिटहब सीक्रेट से यूट्यूब की चाबी लोड करना
+client_secret_json = os.environ.get("YOUTUBE_CLIENT_SECRET")
+if not client_secret_json:
+    raise ValueError("Error: YOUTUBE_CLIENT_SECRET missing in GitHub Secrets!")
 
-    print("\n==============================================")
-    print("   HORROR AI AUTOMATION: ALL STEPS LINKED!    ")
-    print("==============================================")
+client_config = json.loads(client_secret_json)
+
+# इन दोनों स्कोप्स से वीडियो अपलोड और चैनल सिलेक्ट करने की अनुमति मिलती है
+SCOPES = [
+    'https://www.googleapis.com/auth/youtube.upload',
+    'https://www.googleapis.com/auth/youtube.readonly'
+]
+
+def get_youtube_client():
+    creds = None
+    # अगर पहले से लॉगइन टोकन सेव है, तो उसे लोड करो
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    
+    # अगर पहली बार चला रहे हैं, तो ऑथेंटिकेशन लिंक जनरेट करो
+    if not creds or not creds.valid:
+        flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+        # गिटहब एक्शन्स (कंसोल) के लिए लोकल सर्वर बंद करके लिंक मोड ऑन करेंगे
+        auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline')
+        
+        print("\n" + "="*60)
+        print("🔴 IMPORTANT: YOUTUBE LINK REQUIRED!")
+        print("Please open this URL in your browser to log in:")
+        print(auth_url)
+        print("="*60 + "\n")
+        
+        # जब आप ब्राउज़र में अलाउ करके कोड लाएंगे, उसे यहाँ डालना होगा
+        code = input("Enter the authorization code here: ").strip()
+        flow.fetch_token(code=code)
+        creds = flow.credentials
+        
+        # भविष्य के लिए टोकन सेव कर लो
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+            
+    return build('youtube', 'v3', credentials=creds)
+
+def upload_video_to_youtube(youtube, video_path, title, description):
+    print(f"Uploading {video_path} to YouTube...")
+    body = {
+        'snippet': {
+            'title': title,
+            'description': description,
+            'tags': ['shorts', 'horror', 'backrooms', 'apnastoryhindi'],
+            'categoryId': '24' # Entertainment category
+        },
+        'status': {
+            'privacyStatus': 'public', # सीधे पब्लिक होगा
+            'selfDeclaredMadeForKids': False
+        }
+    }
+    
+    media = MediaFileUpload(video_path, chunksize=-1, resumable=True, mimeType='video/mp4')
+    request = youtube.videos().insert(part=','.join(body.keys()), body=body, media_body=media)
+    
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+        if status:
+            print(f"Uploaded {int(status.progress() * 100)}%")
+            
+    print(f"✅ VIDEO UPLOADED SUCCESSFULLY! Video ID: {response.get('id')}")
 
 if __name__ == "__main__":
-    main()
+    print("[1/3] Generating story, voiceover and video...")
+    # (यहाँ आपका पुराना वीडियो मेकर कोड रहेगा, अभी टेस्टिंग के लिए हम एक डमी फाइल मान रहे हैं)
+    video_file = "final_horror_short.mp4"
+    
+    # टेस्टिंग के लिए एक खाली वीडियो फाइल बना देते हैं अगर न हो
+    if not os.path.exists(video_file):
+        with open(video_file, "wb") as f:
+            f.write(b"dummy video data")
+            
+    title = "The Dark Secret of The Backrooms Mystery Hidden Level 🚨 #shorts #horror"
+    description = "Explore the deepest secrets of the Backrooms hidden level. Animated horror story by Apna Story Hindi."
+    
+    print("[2/3] Connecting to YouTube API...")
+    youtube_client = get_youtube_client()
+    
+    print("[3/3] Commencing upload...")
+    upload_video_to_youtube(youtube_client, video_file, title, description)
