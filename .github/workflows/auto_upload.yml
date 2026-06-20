@@ -28,5 +28,7 @@ jobs:
         echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
 
     - name: Run Master Controller (main.py)
+      env:
+        YOUTUBE_CLIENT_SECRET: "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"
       run: |
         python main.py
