@@ -75,7 +75,6 @@ def upload_video_to_youtube(youtube, video_path, title, description):
 
 if __name__ == "__main__":
     print("[1/3] Generating story, voiceover and video...")
-    # (यहाँ आपका पुराना वीडियो मेकर कोड रहेगा, अभी टेस्टिंग के लिए हम एक डमी फाइल मान रहे हैं)
     video_file = "final_horror_short.mp4"
     
     # टेस्टिंग के लिए एक खाली वीडियो फाइल बना देते हैं अगर न हो
