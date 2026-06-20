@@ -1,21 +1,29 @@
-import os
+name: Horror AI Automation
 
-def generate_horror_story(topic):
-    print(f"Generating horror story for topic: '{topic}'...")
-    
-    # अभी के लिए एक बेस स्टोरी टेम्पलेट रख रहे हैं, बाद में इसे Gemini AI से कनेक्ट करेंगे
-    story_template = f"""
-    [Title: The Mystery of {topic}]
-    
-    क्या आप जानते हैं कि इतिहास में कुछ ऐसी घटनाएं हैं जिन्हें कभी सुलझाया नहीं जा सका? 
-    अंधेरे कमरे में जब दीवारें फुसफुसाने लगें, तो समझ जाना कि वो आ चुके हैं। 
-    सांसें रोक लो, क्योंकि जो कहानी आप सुनने जा रहे हैं, वो आपका चैन छीन लेगी...
-    """
-    
-    print("Horror story generated successfully!")
-    return story_template
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *' # रोज़ सुबह भारतीय समयानुसार (IST) 7:30 बजे अपने आप चलेगा
 
-if __name__ == "__main__":
-    sample_topic = "The Backrooms Mystery Hidden Level"
-    story = generate_horror_story(sample_topic)
-    print("\n--- Generated Story ---\n", story)
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Project Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run Master Controller (main.py)
+        run: python main.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
