@@ -1,18 +1,18 @@
 import os
 import json
+import webbrowser
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 
-# 1. गिटहब सीक्रेट से यूट्यूब की चाबी लोड करना
+# गिटहब सीक्रेट से चाबी लोड करना
 client_secret_json = os.environ.get("YOUTUBE_CLIENT_SECRET")
 if not client_secret_json:
     raise ValueError("Error: YOUTUBE_CLIENT_SECRET missing in GitHub Secrets!")
 
 client_config = json.loads(client_secret_json)
 
-# इन दोनों स्कोप्स से वीडियो अपलोड और चैनल सिलेक्ट करने की अनुमति मिलती है
 SCOPES = [
     'https://www.googleapis.com/auth/youtube.upload',
     'https://www.googleapis.com/auth/youtube.readonly'
@@ -20,30 +20,38 @@ SCOPES = [
 
 def get_youtube_client():
     creds = None
-    # अगर पहले से लॉगइन टोकन सेव है, तो उसे लोड करो
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
     
-    # अगर पहली बार चला रहे हैं, तो ऑथेंटिकेशन लिंक जनरेट करो
     if not creds or not creds.valid:
-        flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-        # गिटहब एक्शन्स (कंसोल) के लिए लोकल सर्वर बंद करके लिंक मोड ऑन करेंगे
+        # यहाँ हम स्पष्ट रूप से redirect_uri को localhost पर सेट कर रहे हैं ताकि Error 400 न आए
+        flow = InstalledAppFlow.from_client_config(
+            client_config, 
+            scopes=SCOPES,
+            redirect_uri='http://localhost:8080/'
+        )
+        
         auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline')
         
         print("\n" + "="*60)
-        print("🔴 IMPORTANT: YOUTUBE LINK REQUIRED!")
-        print("Please open this URL in your browser to log in:")
+        print("🔴 IMPORTANT: CLICK THIS LINK TO LINK YOUR CHANNEL")
         print(auth_url)
         print("="*60 + "\n")
         
-        # जब आप ब्राउज़र में अलाउ करके कोड लाएंगे, उसे यहाँ डालना होगा
-        code = input("Enter the authorization code here: ").strip()
-        flow.fetch_token(code=code)
-        creds = flow.credentials
-        
-        # भविष्य के लिए टोकन सेव कर लो
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+        # चूँकि यह गिटहब पर ऑटो-रुक नहीं सकता, हम क्रेडेंशियल्स को सीधे बाईपास करने के लिए 
+        # एक और सीक्रेट चेक करेंगे, अगर वो न हो तो एरर मैसेज देंगे।
+        auth_code_secret = os.environ.get("YOUTUBE_AUTH_CODE")
+        if auth_code_secret:
+            flow.fetch_token(code=auth_code_secret)
+            creds = flow.credentials
+            with open('token.json', 'w') as token:
+                token.write(creds.to_json())
+        else:
+            print("💡 Step 1: Open the link above in your browser.")
+            print("💡 Step 2: Choose your 'Apna Story Hindi' channel & Allow permissions.")
+            print("💡 Step 3: Copy the 'code' parameter from the address bar (URL) after it redirects to localhost.")
+            print("💡 Step 4: Add it to GitHub Secrets with the name: YOUTUBE_AUTH_CODE")
+            raise RuntimeError("Authentication pending. Please follow the steps above and run again!")
             
     return build('youtube', 'v3', credentials=creds)
 
@@ -54,10 +62,10 @@ def upload_video_to_youtube(youtube, video_path, title, description):
             'title': title,
             'description': description,
             'tags': ['shorts', 'horror', 'backrooms', 'apnastoryhindi'],
-            'categoryId': '24' # Entertainment category
+            'categoryId': '24'
         },
         'status': {
-            'privacyStatus': 'public', # सीधे पब्लिक होगा
+            'privacyStatus': 'public',
             'selfDeclaredMadeForKids': False
         }
     }
@@ -74,19 +82,13 @@ def upload_video_to_youtube(youtube, video_path, title, description):
     print(f"✅ VIDEO UPLOADED SUCCESSFULLY! Video ID: {response.get('id')}")
 
 if __name__ == "__main__":
-    print("[1/3] Generating story, voiceover and video...")
     video_file = "final_horror_short.mp4"
-    
-    # टेस्टिंग के लिए एक खाली वीडियो फाइल बना देते हैं अगर न हो
     if not os.path.exists(video_file):
         with open(video_file, "wb") as f:
             f.write(b"dummy video data")
             
     title = "The Dark Secret of The Backrooms Mystery Hidden Level 🚨 #shorts #horror"
-    description = "Explore the deepest secrets of the Backrooms hidden level. Animated horror story by Apna Story Hindi."
+    description = "Animated horror story by Apna Story Hindi."
     
-    print("[2/3] Connecting to YouTube API...")
     youtube_client = get_youtube_client()
-    
-    print("[3/3] Commencing upload...")
     upload_video_to_youtube(youtube_client, video_file, title, description)
