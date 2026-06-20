@@ -3,7 +3,7 @@ name: Horror AI Automation
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 14 * * *' # रोज़ शाम को भारतीय समयानुसार (IST) 7:30 बजे अपने आप चलेगा
+    - cron: '30 14 * * *'
 
 jobs:
   build:
@@ -23,9 +23,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Create Token JSON
+      run: |
+        echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
+
     - name: Run Master Controller (main.py)
-      env:
-        YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-        YOUTUBE_AUTH_CODE: ${{ secrets.YOUTUBE_AUTH_CODE }}
       run: |
         python main.py
