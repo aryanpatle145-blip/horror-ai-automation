@@ -2,6 +2,8 @@ name: Horror AI Automation
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '30 14 * * *' # रोज़ शाम को भारतीय समयानुसार (IST) 7:30 बजे अपने आप चलेगा
 
 jobs:
   build:
